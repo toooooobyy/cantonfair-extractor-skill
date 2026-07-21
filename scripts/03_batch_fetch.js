@@ -11,6 +11,17 @@
  *   3. 每批最多50个编码，超过需分多次执行
  *   4. industrySiteId 固定为 461110967833538560
  *
+ * ⚠️ 字段名警告（2026-07-21 修复）：
+ *   contact 对象的正确字段名如下，切勿使用错误名称：
+ *     手机:   contact.mobileNum         ❌ 不是 contact.mobilePhone
+ *     电话:   contact.companyTelephone   ❌ 不是 contact.tel
+ *     联系人: contact.contactName
+ *     邮箱:   contact.email / contact.companyEmail
+ *     网站:   contact.companyWebsite
+ *
+ *   批量获取前，建议先用单个编码验证字段名：
+ *   详见 SKILL.md 阶段3第2步 或 troubleshooting.md 第12条
+ *
  * 返回：JSON编码的企业联系方式数组字符串
  */
 
@@ -42,12 +53,12 @@ function fetchOne(code) {
         '企业名称': st.name || data.name || '-',
         '企业网站': contact.companyWebsite || udfs.companyWebsite || stUdfs.companyWebsite || '-',
         '业务联系人': udfs.contactPerson || contact.contactName || stUdfs.contactPerson || '-',
+        // ⚠️ 正确字段名: contact.mobileNum（不是 mobilePhone）
         '办公电话': udfs.telephone || contact.companyTelephone || stUdfs.telephone || '-',
-        '手机': udfs.mobilePhone ||
-                (contact.mobileNum ? contact.mobileNum.replace(/^\+86/, '') : '') ||
-                stUdfs.mobilePhone || '-',
+        // ⚠️ 正确字段名: contact.companyTelephone（不是 tel）
+        '手机': contact.mobileNum || udfs.mobilePhone || stUdfs.mobilePhone || '-',
         '邮箱': udfs.email || contact.email || stUdfs.email ||
-                (tenant.contact ? tenant.contact.companyEmail : '') || '-'
+                contact.companyEmail || '-'
       };
     })
     .catch(function(e) {

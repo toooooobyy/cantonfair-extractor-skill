@@ -1,7 +1,7 @@
 # Canton Fair New Enterprise Contact Extractor Skill
 
 > 广交会线上平台新企业联系方式采集技能
-> 经过10个分类、1191家企业的实战验证
+> 经过11个分类、1362家企业的实战验证
 
 ## 什么是这个Skill？
 
@@ -103,7 +103,8 @@ https://365.cantonfair.org.cn/zh-CN/search?queryType=1&fCategoryId={ID}&category
 | 玩具孕婴童 | 57 | 35% | 100% | 39% | 100% | 77% |
 | 礼品及装饰品 | 140 | 34% | 100% | 33% | 100% | 79% |
 | 餐厨用具 | 135 | 36% | 99% | 29% | 100% | 73% |
-| **合计** | **1191** | **38%** | **99.7%** | **37%** | **99.9%** | **79%** |
+| 家用电器 | 171 | 44% | 100% | 31% | 100% | 69% |
+| **合计** | **1362** | **39%** | **99.8%** | **36%** | **99.9%** | **77%** |
 
 ## 关键技术要点
 
@@ -112,10 +113,11 @@ https://365.cantonfair.org.cn/zh-CN/search?queryType=1&fCategoryId={ID}&category
 3. **totalCount过滤**：排除筛选前的全量数据响应
 4. **双重JSON解码**：日志文件格式为 `Result: "{JSON字符串}"`，需要两次解码
 5. **批量并发控制**：每批10个并发请求，批间300ms间隔，避免频率限制
+6. **字段名验证**：批量获取前必须用单个编码验证API contact对象的字段名，避免因字段名错误导致数据为空（详见 troubleshooting.md 第12条）
 
 ## 参考文档
 
 - [SKILL.md](SKILL.md) — 完整工作流指南
-- [故障排查](references/troubleshooting.md) — 11个常见问题与解决方案
+- [故障排查](references/troubleshooting.md) — 12个常见问题与解决方案
 - [数据清洗规则](references/data-cleaning-rules.md) — 详细的清洗逻辑
 - [配色方案](references/category-colors.md) — 6种HTML配色主题

@@ -158,3 +158,69 @@ browser_unlock
 | `sale@eastshoes.cm` | `.com` 拼写为 `.cm` | `val.replace('.cm', '.com')` |
 | `sale @ xxx.com` | 含空格 | `re.sub(r'\s+', '', val)` |
 | `xxx.com`（无@） | 格式不完整 | 正则校验失败，过滤为 `-` |
+
+---
+
+### 12. 手机/电话数据为 0%（字段名错误）
+
+**原因**：批量获取脚本使用了错误的API字段名，导致所有手机和电话字段都返回 `-`。
+
+**症状**：
+- 清洗后统计显示手机 0%、电话 0%
+- 其他字段（企业名称、联系人、邮箱等）正常
+- 用户可能误以为是未登录导致数据不可见
+
+**实际API字段名 vs 常见错误字段名**：
+
+| 输出字段 | ✅ 正确字段名 | ❌ 错误字段名（不存在） |
+|---------|-------------|---------------------|
+| 手机 | `contact.mobileNum` | `contact.mobilePhone` |
+| 办公电话 | `contact.companyTelephone` | `contact.tel` |
+
+**诊断方法**：
+
+1. 用单个企业编码调用API，检查 `contact` 对象的完整字段列表：
+```javascript
+var testCode = "某个企业编码";
+var url = '/b2bshop/api/themeRos/public/shopExt/searchByVariables?shopCode=' + testCode +
+  '&industrySiteId=461110967833538560&unbox=true&_nc=1&filter=salesInfo.status%20eq%20%27ACTIVE%27';
+fetch(url).then(r => r.json()).then(data => {
+  var contact = ((data.siteTrader || {}).tenant || {}).contact || {};
+  return JSON.stringify({
+    allKeys: Object.keys(contact),
+    values: contact
+  }, null, 2);
+});
+```
+
+2. 检查返回的 `allKeys` 是否包含 `mobileNum` 和 `companyTelephone`
+3. 如果包含，说明字段名正确，问题出在批量获取脚本中字段映射错误
+4. 如果不包含，说明API结构可能已变更，需要根据 `allKeys` 重新映射
+
+**contact 对象完整字段列表**（2026-07-21 验证）：
+```json
+["mobileNum", "companyEmail", "contactName", "position",
+ "companyWebsite", "companyTelephone", "email"]
+```
+
+**解决方案**：
+
+修正批量获取脚本中的字段映射：
+```javascript
+// ❌ 错误写法
+'手机': contact.mobilePhone || '-',
+'电话': contact.tel || '-',
+
+// ✅ 正确写法
+'手机': contact.mobileNum || udfs.mobilePhone || '-',
+'电话': contact.companyTelephone || udfs.telephone || '-',
+```
+
+**预防措施**：
+- 每次开始新分类采集时，先执行字段名验证步骤（见 SKILL.md 阶段3第2步）
+- 批量获取完成后，检查前几条数据的手机字段是否为 `-`
+- 如果发现 0% 手机数据，立即停止并排查字段名问题
+
+**真实案例**：
+
+家用电器分类（171家企业）首次采集时，脚本误用 `contact.mobilePhone` 和 `contact.tel`，导致手机和电话均为 0%。用户怀疑是登录问题，经诊断发现API实际返回的字段名是 `mobileNum` 和 `companyTelephone`，数据本身完整存在。修正字段名后重新获取，手机覆盖率从 0% 恢复到 100%。

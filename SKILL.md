@@ -1,7 +1,7 @@
 # Canton Fair New Enterprise Contact Extractor
 
 > 广交会线上平台新企业联系方式采集工作流
-> 经过10个分类、1191家企业的实战验证
+> 经过11个分类、1362家企业的实战验证
 
 ## 适用场景
 
@@ -116,13 +116,37 @@
    - **重要**：shopExt API 只在此域名可用，365域名不行
    - 导航后所有JS变量丢失，所以阶段2必须先保存编码
 
-2. **分批获取数据**
+2. **验证API字段名（关键步骤！）**
+   - **批量获取前，必须先用单个编码验证API返回的contact对象结构**
+   - 使用 `browser_evaluate` 执行以下诊断脚本（替换为第一个企业编码）：
+   ```javascript
+   var testCode = "第一个企业编码";
+   var url = '/b2bshop/api/themeRos/public/shopExt/searchByVariables?shopCode=' + testCode +
+     '&industrySiteId=461110967833538560&unbox=true&_nc=1&filter=salesInfo.status%20eq%20%27ACTIVE%27';
+   fetch(url).then(r => r.json()).then(data => {
+     var contact = (data.siteTrader || {}).tenant || {};
+     var c = contact.contact || {};
+     return JSON.stringify({
+       allKeys: Object.keys(c),
+       mobileNum: c.mobileNum,
+       companyTelephone: c.companyTelephone,
+       contactName: c.contactName,
+       companyWebsite: c.companyWebsite,
+       email: c.email,
+       companyEmail: c.companyEmail
+     }, null, 2);
+   });
+   ```
+   - **确认返回的 `allKeys` 包含 `mobileNum` 和 `companyTelephone`**
+   - 如果字段名不符，参考 [故障排查指南](references/troubleshooting.md) 第12条
+
+3. **分批获取数据**
    - 执行 `scripts/03_batch_fetch.js` 的内容
    - 将编码数组分成每批50个
    - 每批内部使用 Promise.all 并发10个请求，间隔300ms
    - API端点：`/b2bshop/api/themeRos/public/shopExt/searchByVariables`
 
-3. **获取返回的数据**
+4. **获取返回的数据**
    - 脚本返回JSON数组，每个元素包含6个字段
    - 数据会保存在浏览器的 evaluate_script 日志中
    - 日志路径格式：`/tmp/browser-use/evaluate_script-{timestamp}.log`
@@ -140,14 +164,23 @@ GET /b2bshop/api/themeRos/public/shopExt/searchByVariables
 
 ### 数据字段映射
 
-| API字段路径 | 输出字段 |
-|-------------|---------|
-| `siteTrader.name` | 企业名称 |
-| `contact.companyWebsite` / `udfs.companyWebsite` | 企业网站 |
-| `udfs.contactPerson` / `contact.contactName` | 业务联系人 |
-| `udfs.telephone` / `contact.companyTelephone` | 办公电话 |
-| `udfs.mobilePhone` / `contact.mobileNum` | 手机 |
-| `udfs.email` / `contact.email` | 邮箱 |
+> **警告**：API字段名容易混淆，历史上曾因使用错误字段名导致手机和电话数据全部为空。
+> 批量获取前务必执行字段名验证步骤（见上方第2步）。
+
+| 输出字段 | 正确API字段路径（优先级从高到低） | ⚠️ 易混淆的错误字段名 |
+|---------|-------------------------------|---------------------|
+| 企业名称 | `siteTrader.name` | — |
+| 企业网站 | `contact.companyWebsite` / `udfs.companyWebsite` / `stUdfs.companyWebsite` | — |
+| 业务联系人 | `udfs.contactPerson` / `contact.contactName` / `stUdfs.contactPerson` | — |
+| 办公电话 | `udfs.telephone` / `contact.companyTelephone` / `stUdfs.telephone` | ❌ `contact.tel`（不存在） |
+| 手机 | `contact.mobileNum` / `udfs.mobilePhone` / `stUdfs.mobilePhone` | ❌ `contact.mobilePhone`（不存在） |
+| 邮箱 | `udfs.email` / `contact.email` / `stUdfs.email` / `contact.companyEmail` | — |
+
+**contact 对象完整字段列表**（通过实际API验证）：
+```
+["mobileNum", "companyEmail", "contactName", "position",
+ "companyWebsite", "companyTelephone", "email"]
+```
 
 ### 注意事项
 - 每批最多50个编码，超过会导致URL过长或超时
@@ -279,4 +312,5 @@ GET /b2bshop/api/themeRos/public/shopExt/searchByVariables
 | 玩具孕婴童 | 57 | 2026-07-21 |
 | 礼品及装饰品 | 140 | 2026-07-21 |
 | 餐厨用具 | 135 | 2026-07-21 |
-| **合计** | **1191** | |
+| 家用电器 | 171 | 2026-07-21 |
+| **合计** | **1362** | |
